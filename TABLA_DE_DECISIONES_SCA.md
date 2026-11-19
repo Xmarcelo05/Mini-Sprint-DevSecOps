@@ -1,5 +1,7 @@
 # Tabla de Decisiones de Mitigación SCA (Software Composition Analysis)
 
+> **Registro inicial:** la tabla conserva los resultados y propuestas documentados para las dependencias vulnerables. Los identificadores, severidades y versiones deben verificarse con el informe original y fuentes oficiales. La remediación actual aún requiere una nueva auditoría y evidencia; las versiones propuestas abajo no garantizan por sí solas una instalación segura.
+
 ## 📌 Proyecto: Mini-Sprint DevSecOps
 - **Herramienta SBOM:** CycloneDX (`python -m cyclonedx_py requirements requirements.txt -o sbom.json`)
 - **Herramienta SCA:** `pip-audit` v2.10.1
@@ -27,4 +29,5 @@
    Werkzeug>=3.0.6
    requests>=2.32.3
    ```
-2. **Impacto funcional:** No se rompe la compatibilidad de los endpoints existentes (`/api/health`, `/api/profile`, `/api/login`), y se reducen a **0 las vulnerabilidades reportadas por `pip-audit`**.
+2. **Resultado posterior local (19/11/2026):** `pip-audit -r requirements.txt` informó `No known vulnerabilities found` al resolver las dependencias corregidas. Las cinco pruebas funcionales pasaron y Bandit no reportó hallazgos en `app.py`. Repetir los controles en el PR: los resultados pueden cambiar según la fecha y las versiones resueltas. La aplicación no utiliza `requests`, por lo que se retiró de sus dependencias; Werkzeug se resuelve como dependencia de Flask.
+3. **SBOM posterior:** `sbom-remediado.json` inventaría un entorno limpio con Flask 3.1.3, Werkzeug 3.1.9 y python-dotenv 1.2.4, entre otras dependencias. Incluye también el `pip` del entorno; el comando de auditoría anterior cubre los requisitos de la aplicación, no el propio pip.

@@ -33,6 +33,9 @@ jobs:
           bandit -r app.py
 
       - name: 🛡️ SCA - Auditoría de Dependencias con pip-audit
-        run: |
-          echo "Ejecutando pip-audit sobre requirements.txt..."
-          pip-audit -r requirements.txt
+        if: success() || failure()
+        run: pip-audit -r requirements.txt
+
+      - name: 🧪 Pruebas funcionales y de seguridad
+        if: success() || failure()
+        run: python -m unittest discover -s tests -v
