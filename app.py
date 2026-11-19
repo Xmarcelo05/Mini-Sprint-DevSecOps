@@ -26,6 +26,11 @@ def health():
     return jsonify(status="ok", service="API de práctica")
 
 
+@app.get("/api/info")
+def info():
+    return jsonify(name="API Mini-Sprint", version="1.0.0")
+
+
 @app.get("/api/profile")
 def profile():
     # Vulnerabilidad intencional: secreto fijo en el código.
