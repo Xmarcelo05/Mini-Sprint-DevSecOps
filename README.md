@@ -1,91 +1,48 @@
-# API REST de práctica: SAST y SCA
+# API REST: Mini-Sprint DevSecOps
 
-API Flask local con fallos **intencionales** para el laboratorio de DevSecOps: una clave fija en el código, una consulta SQL vulnerable y dependencias desactualizadas. Usa únicamente los datos ficticios incluidos; no agregues credenciales reales ni la expongas a una red pública.
+API Flask de laboratorio para demostrar detección y remediación de vulnerabilidades. Solo para uso local; no es una aplicación lista para producción.
 
-Repositorio remoto: [Mini-Sprint-DevSecOps](https://github.com/Xmarcelo05/Mini-Sprint-DevSecOps)
+- Repositorio: https://github.com/Xmarcelo05/Mini-Sprint-DevSecOps
+- [Guía del equipo: pasos 3, 6 y 7](GUIA_PASOS_3_6_7.md)
+- [Definition of Done](DOD.md) · [Tabla SCA inicial](TABLA_DE_DECISIONES_SCA.md)
+- Backlog: [dependencias #1](https://github.com/Xmarcelo05/Mini-Sprint-DevSecOps/issues/1), [SQL #2](https://github.com/Xmarcelo05/Mini-Sprint-DevSecOps/issues/2), [secretos #3](https://github.com/Xmarcelo05/Mini-Sprint-DevSecOps/issues/3), [contraseñas #4](https://github.com/Xmarcelo05/Mini-Sprint-DevSecOps/issues/4).
 
----
+## Instalación y ejecución (PowerShell, Python 3.10+)
 
-## 🏛️ Arquitectura del Sistema
+```powershell
+py -m venv .venv
+.\.venv\Scripts\Activate.ps1
+python -m pip install -r requirements.txt
+Copy-Item .env.example .env
+```
 
-- **Tipo**: Microservicio / API REST monolítica ligera.
-- **Framework Web**: Python Flask.
-- **Capa de Persistencia**: SQLite 3 local (`practica.db`), inicializada en tiempo de ejecución con la tabla `users` (`id`, `username`, `password`).
-- **Autenticación y Autorización**:
-  - `GET /api/profile`: Validación estática de API Key mediante el encabezado `X-API-Key`.
-  - `POST /api/login`: Validación de credenciales de usuario contra SQLite.
+Editar `.env`: establecer una `API_KEY` privada y `DEMO_ADMIN_PASSWORD` para crear el usuario `admin` de prueba. No compartir ni subir `.env`. Las variables existentes del sistema tienen prioridad sobre `.env`.
 
----
+```powershell
+python app.py
+```
 
-## 🚀 Requisitos y Ejecución Local
+La API escucha únicamente en `127.0.0.1:5000`. El usuario `admin` se crea solo si no existe y se ha configurado `DEMO_ADMIN_PASSWORD`; cambiar la variable después no cambia la contraseña ya guardada. Las contraseñas se guardan como hashes.
 
-1. Abre PowerShell en esta carpeta.
-2. Crea y activa el entorno virtual:
+**Base anterior:** si `practica.db` proviene de la versión vulnerable, respaldarla y eliminarla únicamente si contiene datos de prueba descartables. La aplicación rechaza el esquema anterior; no migra datos automáticamente. Reiniciar para crear la nueva base. Nunca borrar datos reales sin un plan de migración.
 
-   ```powershell
-   py -m venv .venv
-   .\.venv\Scripts\Activate.ps1
-   ```
+## Endpoints
 
-3. Instala las dependencias del escenario vulnerable:
+- `GET /api/health`: estado de la API.
+- `GET /api/profile`: requiere la cabecera `X-API-Key`; devuelve 503 si no está configurada.
+- `POST /api/login`: JSON con `username` y `password`; consulta parametrizada y verificación de hash.
 
-   ```powershell
-   python -m pip install -r requirements.txt
-   ```
+La API sigue siendo didáctica: no incluye registro de usuarios, limitación de intentos ni controles de producción.
 
-4. Inicia la API:
+## Comprobaciones
 
-   ```powershell
-   python app.py
-   ```
+```powershell
+python -m pip install bandit pip-audit pre-commit
+python -m unittest discover -s tests -v
+bandit -r app.py
+pip-audit -r requirements.txt
+pre-commit install
+pre-commit run --all-files
+```
 
-La API escucha en `http://127.0.0.1:5000`. Al iniciar crea `practica.db` con usuarios ficticios (`admin` y `estudiante`).
-
----
-
-## 📡 Endpoints Disponibles
-
-| Método | Endpoint | Cabeceras / Parámetros | Descripción |
-|---|---|---|---|
-| `GET` | `/api/health` | Ninguna | Comprueba que la API esté activa (`{"status": "ok"}`). |
-| `GET` | `/api/profile` | `X-API-Key: API_KEY_DEMO_NO_USAR_EN_PRODUCCION` | Devuelve información de perfil si la API Key es válida. |
-| `POST` | `/api/login` | `Content-Type: application/json` | Recibe `{"username": "...", "password": "..."}` y autentica contra BD. |
-
----
-
-## 🔍 Análisis Inicial de Seguridad (Code Review)
-
-1. **Inyección SQL (CWE-89) [Crítico]**:
-   - En `app.py` (`POST /api/login`), se concatenan los campos `username` y `password` directamente en la consulta SQL (`query = "SELECT ... WHERE username = '" + username + "' ..."`).
-   - Detectado por Bandit con código `B608:hardcoded_sql_expressions`.
-   - Permite evadir la autenticación con payloads como `' OR '1'='1` o `admin' --`.
-2. **Secreto en Código Fuente (CWE-798) [Alto]**:
-   - En `app.py`, la constante `API_KEY` se encuentra en texto plano dentro del código versionado.
-3. **Contraseñas en Texto Plano (CWE-256) [Alto]**:
-   - La tabla `users` almacena las contraseñas sin hashing criptográfico.
-4. **Vulnerabilidades de Dependencias (SCA - CWE-1395) [Alto]**:
-   - `pip-audit` detectó **54 vulnerabilidades conocidas** asociadas a versiones obsoletas de `Flask 2.2.2`, `Werkzeug 2.2.2`, `requests 2.20.0`, `idna 2.7` y `urllib3 1.24.3`.
-
----
-
-## 📋 Gestión Ágil y Backlog (Sprint 1)
-
-El proyecto cuenta con un tablero ágil y Backlog gestionado en GitHub:
-- **Milestone**: [Sprint 1 - Mini-Sprint DevSecOps](https://github.com/Xmarcelo05/Mini-Sprint-DevSecOps/milestone/1)
-- **Issues en Backlog**:
-  1. [#1 [SCA] Actualizar librería requests y dependencias vulnerables en requirements.txt](https://github.com/Xmarcelo05/Mini-Sprint-DevSecOps/issues/1)
-  2. [#2 [SAST] Mitigar vulnerabilidad de Inyección SQL en endpoint /api/login](https://github.com/Xmarcelo05/Mini-Sprint-DevSecOps/issues/2)
-  3. [#3 [SECRETS] Eliminar API Key hardcodeada en app.py y gestionar secretos con variables de entorno](https://github.com/Xmarcelo05/Mini-Sprint-DevSecOps/issues/3)
-  4. [#4 [AUTH] Implementar hashing criptográfico de contraseñas en BD](https://github.com/Xmarcelo05/Mini-Sprint-DevSecOps/issues/4)
-
----
-
-## ✅ Definition of Done (DoD)
-
-Para considerar una tarea como completada, se deben satisfacer los criterios establecidos en [DOD.md](file:///C:/Users/Marcelo/Downloads/api_rest_practica/DOD.md), destacando dos **criterios de seguridad obligatorios**:
-
-1. **Escaneo de Seguridad Limpio (SAST y SCA)**:
-   - Bandit debe ejecutarse (`bandit -r app.py`) sin alertas de severidad media ni alta.
-   - `pip-audit -r requirements.txt` no debe reportar vulnerabilidades conocidas (CVEs).
-2. **Revisión por Pares (Peer Review)**:
-   - Todo código debe ser revisado y aprobado formalmente por otro compañero mediante Pull Request antes de fusionarse a la rama `main`.
+La tabla y `sbom.json` describen el escenario inicial vulnerable. La remediación debe comprobarse con una nueva auditoría y un nuevo SBOM, ya que los resultados dependen de las versiones resueltas y la fecha. El pipeline ejecuta pruebas, Bandit y pip-audit; la protección de rama debe configurarse en GitHub por separado.
